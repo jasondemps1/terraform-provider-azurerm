@@ -18,14 +18,14 @@ import (
 )
 
 //func schemaWorkbookProperties() *schema.Schema {
-	//return &schema.Schema{
-		//Type:     schema.TypeList,
-		//MaxItems: 1,
-		//Optional: true,
-		//Computed: true,
-		//Elem: &schema.Resource{
-		//}
-	//}
+//return &schema.Schema{
+//Type:     schema.TypeList,
+//MaxItems: 1,
+//Optional: true,
+//Computed: true,
+//Elem: &schema.Resource{
+//}
+//}
 //}
 
 func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
@@ -52,7 +52,7 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 				ForceNew: true,
 			},
 
-			//"resource_group_name": azure.SchemaResourceGroupName(),
+			"resource_group_name": azure.SchemaResourceGroupName(),
 
 			"location": azure.SchemaLocation(),
 
@@ -114,7 +114,7 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 				}, false),
 			},
 
-			"properties" : {
+			"properties": {
 				Type:     schema.TypeList,
 				Required: true,
 				Computed: false,
@@ -149,8 +149,8 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 							Type:     schema.TypeString,
 							Required: false,
 							ValidateFunc: validation.StringInSlice([]string{
-								"user",
-								"shared",
+								"User",
+								"Shared",
 							}, false),
 						},
 
@@ -160,42 +160,59 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 							Default:  false,
 						},
 
-			//"daily_data_cap_in_gb": {
-			//Type:         schema.TypeFloat,
-			//Optional:     true,
-			//Computed:     true,
-			//ValidateFunc: validation.FloatBetween(0, 1000),
-			//},
+						"tags": {
+							Type:     schema.TypeList, // TODO
+							Required: false,
+						},
 
-			//"daily_data_cap_notifications_disabled": {
-			//Type:     schema.TypeBool,
-			//Optional: true,
-			//Computed: true,
-			//},
+						"userId": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
 
-			//"app_id": {
-			//Type:     schema.TypeString,
-			//Computed: true,
-			//},
+						"sourceResourceId": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
 
-			//"instrumentation_key": {
-			//Type:      schema.TypeString,
-			//Computed:  true,
-			//Sensitive: true,
-			//},
+						//"daily_data_cap_in_gb": {
+						//Type:         schema.TypeFloat,
+						//Optional:     true,
+						//Computed:     true,
+						//ValidateFunc: validation.FloatBetween(0, 1000),
+						//},
 
-			//"connection_string": {
-			//Type:      schema.TypeString,
-			//Computed:  true,
-			//Sensitive: true,
-			//},
+						//"daily_data_cap_notifications_disabled": {
+						//Type:     schema.TypeBool,
+						//Optional: true,
+						//Computed: true,
+						//},
+
+						//"app_id": {
+						//Type:     schema.TypeString,
+						//Computed: true,
+						//},
+
+						//"instrumentation_key": {
+						//Type:      schema.TypeString,
+						//Computed:  true,
+						//Sensitive: true,
+						//},
+
+						//"connection_string": {
+						//Type:      schema.TypeString,
+						//Computed:  true,
+						//Sensitive: true,
+						//},
+					},
+				},
+			},
 		},
-	},
-}
+	}
 }
 
 func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*clients.Client).AppInsights.ComponentsClient
+	client := meta.(*clients.Client).AppInsights.WorkbooksClient
 	billingClient := meta.(*clients.Client).AppInsights.BillingClient
 	ctx, cancel := timeouts.ForCreateUpdate(meta.(*clients.Client).StopContext, d)
 
@@ -204,7 +221,7 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	log.Printf("[INFO] preparing arguments for AzureRM Application Insights Workbooks creation.")
 
 	name := d.Get("name").(string)
-	//resGroup := d.Get("resource_group_name").(string)
+	resGroup := d.Get("resource_group_name").(string)
 
 	if d.IsNewResource() {
 		existing, err := client.Get(ctx, resGroup, name)
@@ -219,32 +236,58 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 		}
 	}
 
-	applicationType := d.Get("application_type").(string)
-	samplingPercentage := utils.Float(d.Get("sampling_percentage").(float64))
-	disableIpMasking := d.Get("disable_ip_masking").(bool)
-	location := azure.NormalizeLocation(d.Get("location").(string))
-	t := d.Get("tags").(map[string]interface{})
+	//applicationType := d.Get("application_type").(string)
+	//samplingPercentage := utils.Float(d.Get("sampling_percentage").(float64))
+	//disableIpMasking := d.Get("disable_ip_masking").(bool)
+	location := d.Get("location").(string)
+	tags := d.Get("tags").(map[string]*string)
+	sharedTypeKind := insights.SharedTypeKind(fmt.Sprintf("SharedTypeKind%s", d.Get("kind").(string)))
 
-	applicationInsightsComponentProperties := insights.ApplicationInsightsComponentProperties{
-		ApplicationID:      &name,
-		ApplicationType:    insights.ApplicationType(applicationType),
-		SamplingPercentage: samplingPercentage,
-		DisableIPMasking:   utils.Bool(disableIpMasking),
+	propertiesRaw := d.Get("properties").([]interface{})
+	workbookProperties := expandProperties(propertiesRaw)
+
+	workbook := insights.Workbook{
+		Kind:               sharedTypeKind,
+		WorkbookProperties: workbookProperties,
+		Location:           &location,
+		Tags:               tags,
 	}
 
-	if v, ok := d.GetOk("retention_in_days"); ok {
-		applicationInsightsComponentProperties.RetentionInDays = utils.Int32(int32(v.(int)))
-	}
+	//category :=
 
-	insightProperties := insights.ApplicationInsightsComponent{
-		Name:                                   &name,
-		Location:                               &location,
-		Kind:                                   &applicationType,
-		ApplicationInsightsComponentProperties: &applicationInsightsComponentProperties,
-		Tags:                                   tags.Expand(t),
-	}
+	//location := azure.NormalizeLocation(d.Get("location").(string))
+	//t := d.Get("tags").(map[string]interface{})
 
-	_, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
+	//workbookProperties := insights.WorkbookProperties{
+	//Name:           &name,
+	//SerializedData: &serializedData,
+	//Version:        &version,
+	////WorkbookID: , // TODO: How to generate a unique ID and string it?
+	//SharedTypeKind: sharedTypeKind,
+
+	//}
+
+	//applicationInsightsComponentProperties := insights.ApplicationInsightsComponentProperties{
+	//ApplicationID:      &name,
+	//ApplicationType:    insights.ApplicationType(applicationType),
+	//SamplingPercentage: samplingPercentage,
+	//DisableIPMasking:   utils.Bool(disableIpMasking),
+	//}
+
+	//if v, ok := d.GetOk("retention_in_days"); ok {
+	//applicationInsightsComponentProperties.RetentionInDays = utils.Int32(int32(v.(int)))
+	//}
+
+	//insightProperties := insights.ApplicationInsightsComponent{
+	//Name:                                   &name,
+	//Location:                               &location,
+	//Kind:                                   &applicationType,
+	//ApplicationInsightsComponentProperties: &applicationInsightsComponentProperties,
+	//Tags:                                   tags.Expand(t),
+	//}
+
+	//_, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
+	_, err := client.CreateOrUpdate(ctx, resGroup, name, workbookProperties)
 	if err != nil {
 		return fmt.Errorf("Error creating Application Insights %q (Resource Group %q): %+v", name, resGroup, err)
 	}
@@ -363,4 +406,38 @@ func resourceArmApplicationInsightsDelete(d *schema.ResourceData, meta interface
 	}
 
 	return err
+}
+
+func expandProperties(input []interface{}) *insights.WorkbookProperties {
+	if len(input) == 0 {
+		return nil
+	}
+
+	config := input[0].(map[string]interface{})
+
+	name := config["name"].(string)
+	serializedData := config["serialized_data"].(string)
+	version := config["version"].(string)
+	// Needed for flatten: workbookId := config["name"].(string)
+	sharedTypeKind := config["kind"].(insights.SharedTypeKind)
+	category := config["category"].(string)
+	tags := config["tags"].([]string)
+	userId := config["userId"].(string)
+	sourceResourceId := config["sourceResourceId"].(string)
+
+	keyData := ""
+	if key, ok := linuxKeys[0].(map[string]interface{}); ok {
+		keyData = key["key_data"].(string)
+	}
+
+	return &insights.WorkbookProperties{
+		Name:             &name,
+		SerializedData:   &serializedData,
+		Version:          &version,
+		SharedTypeKind:   &kind,
+		Category:         &category,
+		Tags:             &tags,
+		UserID:           &userId,
+		SourceResourceID: &sourceResourceId,
+	}
 }
