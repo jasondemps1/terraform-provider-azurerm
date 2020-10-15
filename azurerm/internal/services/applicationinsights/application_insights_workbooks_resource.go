@@ -190,7 +190,8 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 			//Sensitive: true,
 			//},
 		},
-	}
+	},
+}
 }
 
 func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData, meta interface{}) error {
