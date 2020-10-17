@@ -32,6 +32,6 @@ func (r Registration) SupportedResources() map[string]*schema.Resource {
 		"azurerm_application_insights":                resourceArmApplicationInsights(),
 		"azurerm_application_insights_analytics_item": resourceArmApplicationInsightsAnalyticsItem(),
 		"azurerm_application_insights_web_test":       resourceArmApplicationInsightsWebTests(),
-		"azurerm_application_insights_workbooks":      resourceArmApplicationInsightsWorkBooks(),
+		"azurerm_application_insights_workbook":       resourceArmApplicationInsightsWorkbooks(),
 	}
 }

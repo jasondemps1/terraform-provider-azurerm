@@ -50,7 +50,7 @@ func TestAccAzureRMApplicationInsightsWorkbook_requiresImport(t *testing.T) {
 }
 
 func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
+	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook", "test")
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { acceptance.PreCheck(t) },
@@ -61,12 +61,38 @@ func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
 				Config: testAccAzureRMApplicationInsightsWorkbook_complete(data),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
+					//resource.TestCheckResourceAttr(data.ResourceName, "application_type", "web"),
+					//resource.TestCheckResourceAttr(data.ResourceName, "retention_in_days", "120"),
+					//resource.TestCheckResourceAttr(data.ResourceName, "sampling_percentage", "50"),
+					//resource.TestCheckResourceAttr(data.ResourceName, "daily_data_cap_in_gb", "50"),
+					//resource.TestCheckResourceAttr(data.ResourceName, "daily_data_cap_notifications_disabled", "true"),
+					resource.TestCheckResourceAttr(data.ResourceName, "tags.%", "1"),
+					resource.TestCheckResourceAttr(data.ResourceName, "tags.Hello", "World"),
 				),
 			},
 			data.ImportStep(),
 		},
 	})
 }
+
+//func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
+//data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
+
+//resource.ParallelTest(t, resource.TestCase{
+//PreCheck:     func() { acceptance.PreCheck(t) },
+//Providers:    acceptance.SupportedProviders,
+//CheckDestroy: testCheckAzureRMApplicationInsightsWorkbookDestroy,
+//Steps: []resource.TestStep{
+//{
+//Config: testAccAzureRMApplicationInsightsWorkbook_complete(data),
+//Check: resource.ComposeTestCheckFunc(
+//testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
+//),
+//},
+//data.ImportStep(),
+//},
+//})
+//}
 
 func TestAccAzureRMApplicationInsightsWorkbook_update(t *testing.T) {
 	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
@@ -108,7 +134,7 @@ func TestAccAzureRMApplicationInsightsWorkbook_update(t *testing.T) {
 }
 
 func testCheckAzureRMApplicationInsightsWorkbookDestroy(s *terraform.State) error {
-	conn := acceptance.AzureProvider.Meta().(*clients.Client).AppInsights.WorkbookClient
+	conn := acceptance.AzureProvider.Meta().(*clients.Client).AppInsights.WorkbooksClient
 	ctx := acceptance.AzureProvider.Meta().(*clients.Client).StopContext
 
 	for _, rs := range s.RootModule().Resources {
@@ -126,7 +152,7 @@ func testCheckAzureRMApplicationInsightsWorkbookDestroy(s *terraform.State) erro
 		}
 
 		if resp.StatusCode != http.StatusNotFound {
-			return fmt.Errorf("Application Insights Workbook still exists:\n%#v", resp.ApplicationInsightsComponentProperties)
+			return fmt.Errorf("Application Insights Workbook still exists:\n%#v", resp.WorkbookProperties)
 		}
 	}
 
@@ -135,7 +161,7 @@ func testCheckAzureRMApplicationInsightsWorkbookDestroy(s *terraform.State) erro
 
 func testCheckAzureRMApplicationInsightsWorkbookExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		conn := acceptance.AzureProvider.Meta().(*clients.Client).AppInsights.WorkbookClient
+		conn := acceptance.AzureProvider.Meta().(*clients.Client).AppInsights.WorkbooksClient
 		ctx := acceptance.AzureProvider.Meta().(*clients.Client).StopContext
 
 		// Ensure we have enough information in state to look up in API
@@ -163,33 +189,7 @@ func testCheckAzureRMApplicationInsightsWorkbookExists(resourceName string) reso
 	}
 }
 
-func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook", "test")
-
-	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:     func() { acceptance.PreCheck(t) },
-		Providers:    acceptance.SupportedProviders,
-		CheckDestroy: testCheckAzureRMApplicationInsightsWorkbookDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccAzureRMApplicationInsightsWorkbook_complete(data, "web"),
-				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
-					//resource.TestCheckResourceAttr(data.ResourceName, "application_type", "web"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "retention_in_days", "120"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "sampling_percentage", "50"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "daily_data_cap_in_gb", "50"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "daily_data_cap_notifications_disabled", "true"),
-					resource.TestCheckResourceAttr(data.ResourceName, "tags.%", "1"),
-					resource.TestCheckResourceAttr(data.ResourceName, "tags.Hello", "World"),
-				),
-			},
-			data.ImportStep(),
-		},
-	})
-}
-
-func testAccAzureRMApplicationInsightsWorkbook_basic(data acceptance.TestData, applicationType string) string {
+func testAccAzureRMApplicationInsightsWorkbook_basic(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
@@ -223,11 +223,11 @@ resource "azurerm_application_insights_workbook" "test" {
     ignore_changes = ["tags"]
   }
 }
-`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, applicationType)
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
 }
 
-func testAccAzureRMApplicationInsightsWorkbook_requiresImport(data acceptance.TestData, applicationType string) string {
-	template := testAccAzureRMApplicationInsightsWorkbook_basic(data, applicationType)
+func testAccAzureRMApplicationInsightsWorkbook_requiresImport(data acceptance.TestData) string {
+	template := testAccAzureRMApplicationInsightsWorkbook_basic(data)
 	return fmt.Sprintf(`
 %s
 
@@ -245,7 +245,7 @@ resource "azurerm_application_insights_web_test" "import" {
 `, template)
 }
 
-func testAccAzureRMApplicationInsightsWorkbook_complete(data acceptance.TestData, applicationType string) string {
+func testAccAzureRMApplicationInsightsWorkbook_complete(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
@@ -279,5 +279,5 @@ resource "azurerm_application_insights_workbook" "test" {
     ignore_changes = ["tags"]
   }
 }
-`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, applicationType)
+`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
 }
