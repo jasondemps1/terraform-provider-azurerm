@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/appinsights/mgmt/2015-05-01/insights"
@@ -47,165 +48,85 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.StringIsNotWhiteSpace,
+				//ValidateFunc: validation.NoZeroValues,
 			},
 
 			"resource_group_name": azure.SchemaResourceGroupName(),
 
+			"application_insights_id": {
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateResourceID,
+			},
+
 			"location": azure.SchemaLocation(),
-
-			//"application_type": {
-			//Type:     schema.TypeString,
-			//Required: true,
-			//ForceNew: true,
-			//ValidateFunc: validation.StringInSlice([]string{
-			//"web",
-			//"other",
-			//"java",
-			//"MobileCenter",
-			//"phone",
-			//"store",
-			//"ios",
-			//"Node.JS",
-			//}, false),
-			//},
-
-			//"retention_in_days": {
-			//Type:     schema.TypeInt,
-			//Optional: true,
-			//Default:  90,
-			//ValidateFunc: validation.IntInSlice([]int{
-			//30,
-			//60,
-			//90,
-			//120,
-			//180,
-			//270,
-			//365,
-			//550,
-			//730,
-			//}),
-			//},
-
-			//"sampling_percentage": {
-			//Type:         schema.TypeFloat,
-			//Optional:     true,
-			//Default:      100,
-			//ValidateFunc: validation.FloatBetween(0, 100),
-			//},
-
-			//"disable_ip_masking": {
-			//Type:     schema.TypeBool,
-			//Optional: true,
-			//Default:  false,
-			//},
 
 			"tags": tags.Schema(),
 
 			"kind": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 				ForceNew: true,
 				ValidateFunc: validation.StringInSlice([]string{
-					"user",
-					"shared",
+					string(insights.SharedTypeKindUser),
+					string(insights.SharedTypeKindShared),
 				}, false),
 			},
 
-			"properties": {
-				Type:     schema.TypeList,
+			"serialized_data": {
+				Type:     schema.TypeString,
 				Required: true,
-				Computed: false,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:     schema.TypeString,
-							Required: true,
-							Default:  false,
-						},
+				// TODO: Do we need?
+				// ForceNew: true,
+				ValidateFunc: validation.StringIsJSON,
+				// TODO: Not sure if we need:
+				//DiffSuppressFunc: structure.SuppressJsonDiff,
+			},
 
-						"serializedData": {
-							Type:     schema.TypeString, // TODO: JSON?
-							Required: true,
-							Default:  false,
-						},
+			"version": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 
-						"version": {
-							Type:     schema.TypeString,
-							Required: false,
-							Default:  false,
-						},
+			"workbook_id": {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validation.IsUUID,
+			},
 
-						"workbookId": {
-							Type:     schema.TypeString,
-							Required: true,
-							Default:  false,
-						},
+			"category": {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validation.StringIsNotWhiteSpace,
+			},
 
-						"kind": {
-							Type:     schema.TypeString,
-							Required: false,
-							ValidateFunc: validation.StringInSlice([]string{
-								"User",
-								"Shared",
-							}, false),
-						},
-
-						"category": {
-							Type:     schema.TypeString,
-							Required: true,
-							Default:  false,
-						},
-
-						"tags": {
-							Type:     schema.TypeList, // TODO
-							Required: false,
-						},
-
-						"userId": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-
-						"sourceResourceId": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-
-						//"daily_data_cap_in_gb": {
-						//Type:         schema.TypeFloat,
-						//Optional:     true,
-						//Computed:     true,
-						//ValidateFunc: validation.FloatBetween(0, 1000),
-						//},
-
-						//"daily_data_cap_notifications_disabled": {
-						//Type:     schema.TypeBool,
-						//Optional: true,
-						//Computed: true,
-						//},
-
-						//"app_id": {
-						//Type:     schema.TypeString,
-						//Computed: true,
-						//},
-
-						//"instrumentation_key": {
-						//Type:      schema.TypeString,
-						//Computed:  true,
-						//Sensitive: true,
-						//},
-
-						//"connection_string": {
-						//Type:      schema.TypeString,
-						//Computed:  true,
-						//Sensitive: true,
-						//},
-					},
+			"workbook_tags": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MinItems: 0,
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					ValidateFunc: validation.StringIsNotWhiteSpace,
+					//ValidateFunc:     validation.StringIsNotEmpty,
+					//StateFunc:        location.StateFunc,
+					//DiffSuppressFunc: location.DiffSuppressFunc,
 				},
+			},
+
+			"user_id": {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validation.IsUUID,
+			},
+
+			"source_resource_id": {
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 		},
 	}
@@ -222,6 +143,14 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 
 	name := d.Get("name").(string)
 	resGroup := d.Get("resource_group_name").(string)
+	appInsightsID := d.Get("application_insights_id").(string)
+
+	id, err := azure.ParseAzureResourceID(appInsightsID)
+	if err != nil {
+		return err
+	}
+
+	appInsightsName := id.Path["components"]
 
 	if d.IsNewResource() {
 		existing, err := client.Get(ctx, resGroup, name)
@@ -232,7 +161,7 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 		}
 
 		if existing.ID != nil && *existing.ID != "" {
-			return tf.ImportAsExistsError("azurerm_application_insights_workbooks", *existing.ID)
+			return tf.ImportAsExistsError("azurerm_application_insights_workbook", *existing.ID)
 		}
 	}
 
@@ -240,17 +169,43 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	//samplingPercentage := utils.Float(d.Get("sampling_percentage").(float64))
 	//disableIpMasking := d.Get("disable_ip_masking").(bool)
 	location := d.Get("location").(string)
-	tags := d.Get("tags").(map[string]*string)
-	sharedTypeKind := insights.SharedTypeKind(fmt.Sprintf("SharedTypeKind%s", d.Get("kind").(string)))
+	//tags := d.Get("tags").(map[string]*string)
 
-	propertiesRaw := d.Get("properties").([]interface{})
-	workbookProperties := expandProperties(propertiesRaw)
+	t := d.Get("tags").(map[string]interface{})
+	tagKey := fmt.Sprintf("hidden-link:/subscriptions/%s/resourceGroups/%s/providers/microsoft.insights/components/%s", client.SubscriptionID, resGroup, appInsightsName)
+	t[tagKey] = "Resource"
+
+	kind := d.Get("kind").(string)
+	serializedData := d.Get("serialized_data").(string)
+	version := d.Get("version").(string)
+	// Needed for flatten: workbookId := config["name"].(string)
+	category := d.Get("category").(string)
+	workbookTags := d.Get("workbook_tags").([]string)
+	userID := d.Get("user_id").(string)
+	sourceResourceID := d.Get("source_resource_id").(string)
+	workbookID := d.Get("workbook_id").(string)
+	//sharedTypeKind := insights.SharedTypeKind(fmt.Sprintf("SharedTypeKind%s", d.Get("kind").(string)))
+
+	//propertiesRaw := d.Get("properties").([]interface{})
+	//workbookProperties := expandProperties(propertiesRaw)
 
 	workbook := insights.Workbook{
-		Kind:               sharedTypeKind,
-		WorkbookProperties: workbookProperties,
-		Location:           &location,
-		Tags:               tags,
+		Name:     &name,
+		Location: &location,
+		Kind:     insights.SharedTypeKind(kind),
+		//WorkbookProperties: workbookProperties,
+		WorkbookProperties: &insights.WorkbookProperties{
+			Name:             &name,
+			SerializedData:   &serializedData,
+			Version:          &version,
+			WorkbookID:       &workbookID,
+			SharedTypeKind:   insights.SharedTypeKind(kind),
+			Category:         &category,
+			Tags:             &workbookTags,
+			UserID:           &userID,
+			SourceResourceID: &sourceResourceID,
+		},
+		Tags: tags.Expand(t),
 	}
 
 	//category :=
@@ -286,18 +241,9 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	//Tags:                                   tags.Expand(t),
 	//}
 
-	//_, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
-	_, err := client.CreateOrUpdate(ctx, resGroup, name, workbook)
+	resp, err := client.CreateOrUpdate(ctx, resGroup, name, workbook)
 	if err != nil {
-		return fmt.Errorf("Error creating Application Insights Workbooks %q (Resource Group %q): %+v", name, resGroup, err)
-	}
-
-	read, err := client.Get(ctx, resGroup, name)
-	if err != nil {
-		return fmt.Errorf("Error retrieving Application Insights Workbooks %q (Resource Group %q): %+v", name, resGroup, err)
-	}
-	if read.ID == nil {
-		return fmt.Errorf("Cannot read AzureRM Application Insights Workbooks '%s' (Resource Group %s) ID", name, resGroup)
+		return fmt.Errorf("Error creating Application Insights Workbook %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
 	//billingRead, err := billingClient.Get(ctx, resGroup, name)
@@ -322,14 +268,13 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	//return fmt.Errorf("Error update Application Insights Workbooks Billing Feature %q (Resource Group %q): %+v", name, resGroup, err)
 	//}
 
-	d.SetId(*read.ID)
+	d.SetId(*resp.ID)
 
 	return resourceArmApplicationInsightsWorkbooksRead(d, meta)
 }
 
 func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*clients.Client).AppInsights.WorkbooksClient
-	//billingClient := meta.(*clients.Client).AppInsights.BillingClient
 	ctx, cancel := timeouts.ForRead(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -341,21 +286,17 @@ func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta in
 	log.Printf("[DEBUG] Reading AzureRM Application Insights Workbooks '%s'", id)
 
 	resGroup := id.ResourceGroup
-	name := id.Path["components"]
+	name := id.Path["workbooks"]
 
 	resp, err := client.Get(ctx, resGroup, name)
 	if err != nil {
 		if utils.ResponseWasNotFound(resp.Response) {
+			log.Printf("[DEBUG] Application Insights Workbook %q was not found in Resource Group %q - removing from state!", name, resGroup)
 			d.SetId("")
 			return nil
 		}
 		return fmt.Errorf("Error making Read request on AzureRM Application Insights Workbooks '%s': %+v", name, err)
 	}
-
-	//billingResp, err := billingClient.Get(ctx, resGroup, name)
-	//if err != nil {
-	//return fmt.Errorf("Error making Read request on AzureRM Application Insights Workbooks Billing Feature '%s': %+v", name, err)
-	//}
 
 	d.Set("name", name)
 	d.Set("resource_group_name", resGroup)
@@ -363,22 +304,43 @@ func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta in
 		d.Set("location", azure.NormalizeLocation(*location))
 	}
 
-	//if props := resp.ApplicationInsightsComponentProperties; props != nil {
-	//d.Set("application_type", string(props.ApplicationType))
-	//d.Set("app_id", props.AppID)
-	//d.Set("instrumentation_key", props.InstrumentationKey)
-	//d.Set("sampling_percentage", props.SamplingPercentage)
-	//d.Set("disable_ip_masking", props.DisableIPMasking)
-	//d.Set("connection_string", props.ConnectionString)
-	//if v := props.RetentionInDays; v != nil {
-	//d.Set("retention_in_days", v)
-	//}
-	//}
+	appInsightsID := ""
+	for i := range resp.Tags {
+		if strings.HasPrefix(i, "hidden-link") {
+			appInsightsID = strings.Split(i, ":")[1]
+		}
+	}
 
-	//if billingProps := billingResp.DataVolumeCap; billingProps != nil {
-	//d.Set("daily_data_cap_in_gb", billingProps.Cap)
-	//d.Set("daily_data_cap_notifications_disabled", billingProps.StopSendNotificationWhenHitCap)
-	//}
+	d.Set("name", resp.Name)
+	d.Set("resource_group_name", resGroup)
+	d.Set("kind", resp.Kind)
+	d.Set("application_insights_id", appInsightsID)
+
+	if location := resp.Location; location != nil {
+		d.Set("location", azure.NormalizeLocation(*location))
+	}
+
+	if props := resp.WorkbookProperties; props != nil {
+		// It is possible that the root level `kind` in response is empty in some cases (see PR #8372 for more info)
+		if resp.Kind == "" {
+			d.Set("kind", props.SharedTypeKind)
+		}
+		d.Set("serialized_data", props.SerializedData)
+		d.Set("version", props.Version)
+		d.Set("workbook_id", props.WorkbookID)
+		d.Set("category", props.Category)
+		d.Set("user_id", props.UserID)
+		d.Set("source_resource_id", props.SourceResourceID)
+		d.Set("workbook_tags", props.Tags)
+
+		//if config := props.Configuration; config != nil {
+		//d.Set("configuration", config.WebTest)
+		//}
+
+		//if err := d.Set("workbook_tags", flattenApplicationInsightsWorkbookTags(props.Tags)); err != nil {
+		//return fmt.Errorf("Error setting `workbook_tags`: %+v", err)
+		//}
+	}
 
 	return tags.FlattenAndSet(d, resp.Tags)
 }
@@ -393,7 +355,7 @@ func resourceArmApplicationInsightsWorkbooksDelete(d *schema.ResourceData, meta 
 		return err
 	}
 	resGroup := id.ResourceGroup
-	name := id.Path["components"]
+	name := id.Path["workbooks"]
 
 	log.Printf("[DEBUG] Deleting AzureRM Application Insights Workbooks '%s' (resource group '%s')", name, resGroup)
 
@@ -408,36 +370,38 @@ func resourceArmApplicationInsightsWorkbooksDelete(d *schema.ResourceData, meta 
 	return err
 }
 
-func expandProperties(input []interface{}) *insights.WorkbookProperties {
-	if len(input) == 0 {
-		return nil
-	}
+//func flattenApplicationInsightsWorkbookTags(input *[]insights.Workbook)
 
-	config := input[0].(map[string]interface{})
+//func expandProperties(input []interface{}) *insights.WorkbookProperties {
+//if len(input) == 0 {
+//return nil
+//}
 
-	name := config["name"].(string)
-	serializedData := config["serialized_data"].(string)
-	version := config["version"].(string)
-	// Needed for flatten: workbookId := config["name"].(string)
-	sharedTypeKind := config["kind"].(insights.SharedTypeKind)
-	category := config["category"].(string)
-	tags := config["tags"].([]string)
-	userID := config["userId"].(string)
-	sourceResourceID := config["sourceResourceId"].(string)
+//config := input[0].(map[string]interface{})
 
-	//keyData := ""
-	//if key, ok := linuxKeys[0].(map[string]interface{}); ok {
-	//keyData = key["key_data"].(string)
-	//}
+//name := config["name"].(string)
+//serializedData := config["serialized_data"].(string)
+//version := config["version"].(string)
+//// Needed for flatten: workbookId := config["name"].(string)
+//sharedTypeKind := config["kind"].(insights.SharedTypeKind)
+//category := config["category"].(string)
+//tags := config["tags"].([]string)
+//userID := config["userId"].(string)
+//sourceResourceID := config["sourceResourceId"].(string)
 
-	return &insights.WorkbookProperties{
-		Name:             &name,
-		SerializedData:   &serializedData,
-		Version:          &version,
-		SharedTypeKind:   sharedTypeKind,
-		Category:         &category,
-		Tags:             &tags,
-		UserID:           &userID,
-		SourceResourceID: &sourceResourceID,
-	}
-}
+////keyData := ""
+////if key, ok := linuxKeys[0].(map[string]interface{}); ok {
+////keyData = key["key_data"].(string)
+////}
+
+//return &insights.WorkbookProperties{
+//Name:             &name,
+//SerializedData:   &serializedData,
+//Version:          &version,
+//SharedTypeKind:   sharedTypeKind,
+//Category:         &category,
+//Tags:             &tags,
+//UserID:           &userID,
+//SourceResourceID: &sourceResourceID,
+//}
+//}
