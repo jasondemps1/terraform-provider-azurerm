@@ -227,7 +227,7 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 		existing, err := client.Get(ctx, resGroup, name)
 		if err != nil {
 			if !utils.ResponseWasNotFound(existing.Response) {
-				return fmt.Errorf("Error checking for presence of existing Application Insights %q (Resource Group %q): %s", name, resGroup, err)
+				return fmt.Errorf("Error checking for presence of existing Application Insights Workbooks %q (Resource Group %q): %s", name, resGroup, err)
 			}
 		}
 
@@ -289,20 +289,20 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	//_, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
 	_, err := client.CreateOrUpdate(ctx, resGroup, name, workbook)
 	if err != nil {
-		return fmt.Errorf("Error creating Application Insights %q (Resource Group %q): %+v", name, resGroup, err)
+		return fmt.Errorf("Error creating Application Insights Workbooks %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
 	read, err := client.Get(ctx, resGroup, name)
 	if err != nil {
-		return fmt.Errorf("Error retrieving Application Insights %q (Resource Group %q): %+v", name, resGroup, err)
+		return fmt.Errorf("Error retrieving Application Insights Workbooks %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 	if read.ID == nil {
-		return fmt.Errorf("Cannot read AzureRM Application Insights '%s' (Resource Group %s) ID", name, resGroup)
+		return fmt.Errorf("Cannot read AzureRM Application Insights Workbooks '%s' (Resource Group %s) ID", name, resGroup)
 	}
 
 	//billingRead, err := billingClient.Get(ctx, resGroup, name)
 	//if err != nil {
-	//return fmt.Errorf("Error read Application Insights Billing Features %q (Resource Group %q): %+v", name, resGroup, err)
+	//return fmt.Errorf("Error read Application Insights Workbooks Billing Features %q (Resource Group %q): %+v", name, resGroup, err)
 	//}
 
 	//applicationInsightsComponentBillingFeatures := insights.ApplicationInsightsComponentBillingFeatures{
@@ -319,7 +319,7 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	//}
 
 	//if _, err = billingClient.Update(ctx, resGroup, name, applicationInsightsComponentBillingFeatures); err != nil {
-	//return fmt.Errorf("Error update Application Insights Billing Feature %q (Resource Group %q): %+v", name, resGroup, err)
+	//return fmt.Errorf("Error update Application Insights Workbooks Billing Feature %q (Resource Group %q): %+v", name, resGroup, err)
 	//}
 
 	d.SetId(*read.ID)
@@ -338,7 +338,7 @@ func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta in
 		return err
 	}
 
-	log.Printf("[DEBUG] Reading AzureRM Application Insights '%s'", id)
+	log.Printf("[DEBUG] Reading AzureRM Application Insights Workbooks '%s'", id)
 
 	resGroup := id.ResourceGroup
 	name := id.Path["components"]
@@ -349,12 +349,12 @@ func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta in
 			d.SetId("")
 			return nil
 		}
-		return fmt.Errorf("Error making Read request on AzureRM Application Insights '%s': %+v", name, err)
+		return fmt.Errorf("Error making Read request on AzureRM Application Insights Workbooks '%s': %+v", name, err)
 	}
 
 	//billingResp, err := billingClient.Get(ctx, resGroup, name)
 	//if err != nil {
-	//return fmt.Errorf("Error making Read request on AzureRM Application Insights Billing Feature '%s': %+v", name, err)
+	//return fmt.Errorf("Error making Read request on AzureRM Application Insights Workbooks Billing Feature '%s': %+v", name, err)
 	//}
 
 	d.Set("name", name)
@@ -395,14 +395,14 @@ func resourceArmApplicationInsightsWorkbooksDelete(d *schema.ResourceData, meta 
 	resGroup := id.ResourceGroup
 	name := id.Path["components"]
 
-	log.Printf("[DEBUG] Deleting AzureRM Application Insights '%s' (resource group '%s')", name, resGroup)
+	log.Printf("[DEBUG] Deleting AzureRM Application Insights Workbooks '%s' (resource group '%s')", name, resGroup)
 
 	resp, err := client.Delete(ctx, resGroup, name)
 	if err != nil {
 		if resp.StatusCode == http.StatusNotFound {
 			return nil
 		}
-		return fmt.Errorf("Error issuing AzureRM delete request for Application Insights '%s': %+v", name, err)
+		return fmt.Errorf("Error issuing AzureRM delete request for Application Insights Workbooks '%s': %+v", name, err)
 	}
 
 	return err
