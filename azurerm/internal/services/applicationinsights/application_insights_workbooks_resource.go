@@ -213,7 +213,7 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 
 func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*clients.Client).AppInsights.WorkbooksClient
-	billingClient := meta.(*clients.Client).AppInsights.BillingClient
+	//billingClient := meta.(*clients.Client).AppInsights.BillingClient
 	ctx, cancel := timeouts.ForCreateUpdate(meta.(*clients.Client).StopContext, d)
 
 	defer cancel()
@@ -287,7 +287,7 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 	//}
 
 	//_, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
-	_, err := client.CreateOrUpdate(ctx, resGroup, name, workbookProperties)
+	_, err := client.CreateOrUpdate(ctx, resGroup, name, workbook)
 	if err != nil {
 		return fmt.Errorf("Error creating Application Insights %q (Resource Group %q): %+v", name, resGroup, err)
 	}
@@ -300,36 +300,36 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 		return fmt.Errorf("Cannot read AzureRM Application Insights '%s' (Resource Group %s) ID", name, resGroup)
 	}
 
-	billingRead, err := billingClient.Get(ctx, resGroup, name)
-	if err != nil {
-		return fmt.Errorf("Error read Application Insights Billing Features %q (Resource Group %q): %+v", name, resGroup, err)
-	}
+	//billingRead, err := billingClient.Get(ctx, resGroup, name)
+	//if err != nil {
+	//return fmt.Errorf("Error read Application Insights Billing Features %q (Resource Group %q): %+v", name, resGroup, err)
+	//}
 
-	applicationInsightsComponentBillingFeatures := insights.ApplicationInsightsComponentBillingFeatures{
-		CurrentBillingFeatures: billingRead.CurrentBillingFeatures,
-		DataVolumeCap:          billingRead.DataVolumeCap,
-	}
+	//applicationInsightsComponentBillingFeatures := insights.ApplicationInsightsComponentBillingFeatures{
+	//CurrentBillingFeatures: billingRead.CurrentBillingFeatures,
+	//DataVolumeCap:          billingRead.DataVolumeCap,
+	//}
 
-	if v, ok := d.GetOk("daily_data_cap_in_gb"); ok {
-		applicationInsightsComponentBillingFeatures.DataVolumeCap.Cap = utils.Float(v.(float64))
-	}
+	//if v, ok := d.GetOk("daily_data_cap_in_gb"); ok {
+	//applicationInsightsComponentBillingFeatures.DataVolumeCap.Cap = utils.Float(v.(float64))
+	//}
 
-	if v, ok := d.GetOk("daily_data_cap_notifications_disabled"); ok {
-		applicationInsightsComponentBillingFeatures.DataVolumeCap.StopSendNotificationWhenHitCap = utils.Bool(v.(bool))
-	}
+	//if v, ok := d.GetOk("daily_data_cap_notifications_disabled"); ok {
+	//applicationInsightsComponentBillingFeatures.DataVolumeCap.StopSendNotificationWhenHitCap = utils.Bool(v.(bool))
+	//}
 
-	if _, err = billingClient.Update(ctx, resGroup, name, applicationInsightsComponentBillingFeatures); err != nil {
-		return fmt.Errorf("Error update Application Insights Billing Feature %q (Resource Group %q): %+v", name, resGroup, err)
-	}
+	//if _, err = billingClient.Update(ctx, resGroup, name, applicationInsightsComponentBillingFeatures); err != nil {
+	//return fmt.Errorf("Error update Application Insights Billing Feature %q (Resource Group %q): %+v", name, resGroup, err)
+	//}
 
 	d.SetId(*read.ID)
 
-	return resourceArmApplicationInsightsRead(d, meta)
+	return resourceArmApplicationInsightsWorkbooksRead(d, meta)
 }
 
-func resourceArmApplicationInsightsRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*clients.Client).AppInsights.ComponentsClient
-	billingClient := meta.(*clients.Client).AppInsights.BillingClient
+func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*clients.Client).AppInsights.WorkbooksClient
+	//billingClient := meta.(*clients.Client).AppInsights.BillingClient
 	ctx, cancel := timeouts.ForRead(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -352,10 +352,10 @@ func resourceArmApplicationInsightsRead(d *schema.ResourceData, meta interface{}
 		return fmt.Errorf("Error making Read request on AzureRM Application Insights '%s': %+v", name, err)
 	}
 
-	billingResp, err := billingClient.Get(ctx, resGroup, name)
-	if err != nil {
-		return fmt.Errorf("Error making Read request on AzureRM Application Insights Billing Feature '%s': %+v", name, err)
-	}
+	//billingResp, err := billingClient.Get(ctx, resGroup, name)
+	//if err != nil {
+	//return fmt.Errorf("Error making Read request on AzureRM Application Insights Billing Feature '%s': %+v", name, err)
+	//}
 
 	d.Set("name", name)
 	d.Set("resource_group_name", resGroup)
@@ -363,28 +363,28 @@ func resourceArmApplicationInsightsRead(d *schema.ResourceData, meta interface{}
 		d.Set("location", azure.NormalizeLocation(*location))
 	}
 
-	if props := resp.ApplicationInsightsComponentProperties; props != nil {
-		d.Set("application_type", string(props.ApplicationType))
-		d.Set("app_id", props.AppID)
-		d.Set("instrumentation_key", props.InstrumentationKey)
-		d.Set("sampling_percentage", props.SamplingPercentage)
-		d.Set("disable_ip_masking", props.DisableIPMasking)
-		d.Set("connection_string", props.ConnectionString)
-		if v := props.RetentionInDays; v != nil {
-			d.Set("retention_in_days", v)
-		}
-	}
+	//if props := resp.ApplicationInsightsComponentProperties; props != nil {
+	//d.Set("application_type", string(props.ApplicationType))
+	//d.Set("app_id", props.AppID)
+	//d.Set("instrumentation_key", props.InstrumentationKey)
+	//d.Set("sampling_percentage", props.SamplingPercentage)
+	//d.Set("disable_ip_masking", props.DisableIPMasking)
+	//d.Set("connection_string", props.ConnectionString)
+	//if v := props.RetentionInDays; v != nil {
+	//d.Set("retention_in_days", v)
+	//}
+	//}
 
-	if billingProps := billingResp.DataVolumeCap; billingProps != nil {
-		d.Set("daily_data_cap_in_gb", billingProps.Cap)
-		d.Set("daily_data_cap_notifications_disabled", billingProps.StopSendNotificationWhenHitCap)
-	}
+	//if billingProps := billingResp.DataVolumeCap; billingProps != nil {
+	//d.Set("daily_data_cap_in_gb", billingProps.Cap)
+	//d.Set("daily_data_cap_notifications_disabled", billingProps.StopSendNotificationWhenHitCap)
+	//}
 
 	return tags.FlattenAndSet(d, resp.Tags)
 }
 
-func resourceArmApplicationInsightsDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*clients.Client).AppInsights.ComponentsClient
+func resourceArmApplicationInsightsWorkbooksDelete(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*clients.Client).AppInsights.WorkbooksClient
 	ctx, cancel := timeouts.ForDelete(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -422,22 +422,22 @@ func expandProperties(input []interface{}) *insights.WorkbookProperties {
 	sharedTypeKind := config["kind"].(insights.SharedTypeKind)
 	category := config["category"].(string)
 	tags := config["tags"].([]string)
-	userId := config["userId"].(string)
-	sourceResourceId := config["sourceResourceId"].(string)
+	userID := config["userId"].(string)
+	sourceResourceID := config["sourceResourceId"].(string)
 
-	keyData := ""
-	if key, ok := linuxKeys[0].(map[string]interface{}); ok {
-		keyData = key["key_data"].(string)
-	}
+	//keyData := ""
+	//if key, ok := linuxKeys[0].(map[string]interface{}); ok {
+	//keyData = key["key_data"].(string)
+	//}
 
 	return &insights.WorkbookProperties{
 		Name:             &name,
 		SerializedData:   &serializedData,
 		Version:          &version,
-		SharedTypeKind:   &kind,
+		SharedTypeKind:   sharedTypeKind,
 		Category:         &category,
 		Tags:             &tags,
-		UserID:           &userId,
-		SourceResourceID: &sourceResourceId,
+		UserID:           &userID,
+		SourceResourceID: &sourceResourceID,
 	}
 }
