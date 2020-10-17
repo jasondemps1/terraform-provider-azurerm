@@ -57,3 +57,29 @@ func ApplicationInsightsWebTestID(input string) (*ApplicationInsightsWebTestId, 
 
 	return &testid, nil
 }
+
+type ApplicationInsightsWorkbookId struct {
+	ResourceGroup string
+	UUID          string
+}
+
+func ApplicationInsightsWorkbookID(input string) (*ApplicationInsightsWorkbookId, error) {
+	id, err := azure.ParseAzureResourceID(input)
+	if err != nil {
+		return nil, fmt.Errorf("parsing Application Insights Web Test ID %q: %+v", input, err)
+	}
+
+	workbookID := ApplicationInsightsWorkbookId{
+		ResourceGroup: id.ResourceGroup,
+	}
+
+	if workbookID.UUID, err = id.PopSegment("workbooks"); err != nil {
+		return nil, err
+	}
+
+	if err := id.ValidateNoEmptySegments(input); err != nil {
+		return nil, err
+	}
+
+	return &workbookID, nil
+}

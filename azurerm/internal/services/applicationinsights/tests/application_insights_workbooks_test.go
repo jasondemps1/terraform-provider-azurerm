@@ -12,7 +12,7 @@ import (
 )
 
 func TestAccAzureRMApplicationInsightsWorkbook_basic(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
+	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook", "test")
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { acceptance.PreCheck(t) },
@@ -31,7 +31,7 @@ func TestAccAzureRMApplicationInsightsWorkbook_basic(t *testing.T) {
 }
 
 func TestAccAzureRMApplicationInsightsWorkbook_requiresImport(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
+	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook", "test")
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { acceptance.PreCheck(t) },
@@ -61,11 +61,15 @@ func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
 				Config: testAccAzureRMApplicationInsightsWorkbook_complete(data),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
-					//resource.TestCheckResourceAttr(data.ResourceName, "application_type", "web"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "retention_in_days", "120"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "sampling_percentage", "50"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "daily_data_cap_in_gb", "50"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "daily_data_cap_notifications_disabled", "true"),
+					resource.TestCheckResourceAttr(data.ResourceName, "kind", "shared"),
+					resource.TestCheckResourceAttr(data.ResourceName, "serialized_data", "{Book1:\"test\"}"),
+					resource.TestCheckResourceAttr(data.ResourceName, "version", "1.0"),
+					// TODO: This is computed: resource.TestCheckResourceAttr(data.ResourceName, "workbook_id", "WBID"),
+					resource.TestCheckResourceAttr(data.ResourceName, "category", "workbook"),
+					//resource.TestCheckResourceAttr(data.ResourceName, "user_id", "00000000-0000-0000-0000-000000000000"),
+					resource.TestCheckResourceAttr(data.ResourceName, "user_id", data.Client().Default.ClientID),
+					resource.TestCheckResourceAttr(data.ResourceName, "source_resource_id", "/path/to/resource/id"),
+					resource.TestCheckResourceAttr(data.ResourceName, "workbook_tags", "tag1"),
 					resource.TestCheckResourceAttr(data.ResourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(data.ResourceName, "tags.Hello", "World"),
 				),
@@ -75,27 +79,8 @@ func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
 	})
 }
 
-//func TestAccAzureRMApplicationInsightsWorkbook_complete(t *testing.T) {
-//data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
-
-//resource.ParallelTest(t, resource.TestCase{
-//PreCheck:     func() { acceptance.PreCheck(t) },
-//Providers:    acceptance.SupportedProviders,
-//CheckDestroy: testCheckAzureRMApplicationInsightsWorkbookDestroy,
-//Steps: []resource.TestStep{
-//{
-//Config: testAccAzureRMApplicationInsightsWorkbook_complete(data),
-//Check: resource.ComposeTestCheckFunc(
-//testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
-//),
-//},
-//data.ImportStep(),
-//},
-//})
-//}
-
 func TestAccAzureRMApplicationInsightsWorkbook_update(t *testing.T) {
-	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook_test", "test")
+	data := acceptance.BuildTestData(t, "azurerm_application_insights_workbook", "test")
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { acceptance.PreCheck(t) },
@@ -106,27 +91,27 @@ func TestAccAzureRMApplicationInsightsWorkbook_update(t *testing.T) {
 				Config: testAccAzureRMApplicationInsightsWorkbook_basic(data),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
-					//resource.TestCheckResourceAttr(data.ResourceName, "geo_locations.#", "1"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "frequency", "300"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "timeout", "30"),
+					resource.TestCheckResourceAttr(data.ResourceName, "version", "1.1"),
+					resource.TestCheckResourceAttr(data.ResourceName, "category", "usage"),
+					resource.TestCheckResourceAttr(data.ResourceName, "kind", "user"),
 				),
 			},
 			{
 				Config: testAccAzureRMApplicationInsightsWorkbook_complete(data),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
-					//resource.TestCheckResourceAttr(data.ResourceName, "geo_locations.#", "2"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "frequency", "900"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "timeout", "120"),
+					resource.TestCheckResourceAttr(data.ResourceName, "version", "2.0"),
+					resource.TestCheckResourceAttr(data.ResourceName, "category", "tsg"),
+					resource.TestCheckResourceAttr(data.ResourceName, "kind", "shared"),
 				),
 			},
 			{
 				Config: testAccAzureRMApplicationInsightsWorkbook_basic(data),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMApplicationInsightsWorkbookExists(data.ResourceName),
-					//resource.TestCheckResourceAttr(data.ResourceName, "geo_locations.#", "1"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "frequency", "300"),
-					//resource.TestCheckResourceAttr(data.ResourceName, "timeout", "30"),
+					resource.TestCheckResourceAttr(data.ResourceName, "version", "1.1"),
+					resource.TestCheckResourceAttr(data.ResourceName, "category", "usage"),
+					resource.TestCheckResourceAttr(data.ResourceName, "kind", "user"),
 				),
 			},
 		},
@@ -189,41 +174,57 @@ func testCheckAzureRMApplicationInsightsWorkbookExists(resourceName string) reso
 	}
 }
 
-func testAccAzureRMApplicationInsightsWorkbook_basic(data acceptance.TestData) string {
+func testAccAzureRMApplicationInsightsWorkbook_template(data acceptance.TestData) string {
 	return fmt.Sprintf(`
 provider "azurerm" {
   features {}
 }
 
 resource "azurerm_resource_group" "test" {
-  name     = "acctestRG-%d"
+  name     = "acctestRG-workbook-%d"
   location = "%s"
 }
-
-resource "azurerm_application_insights" "test" {
-  name                = "acctestappinsights-%d"
-  location            = azurerm_resource_group.test.location
-  resource_group_name = azurerm_resource_group.test.name
-  application_type    = "web"
+`, data.RandomInteger, data.Locations.Primary)
 }
+
+func testAccAzureRMApplicationInsightsWorkbook_basic(data acceptance.TestData) string {
+	init := testAccAzureRMApplicationInsightsWorkbook_template(data)
+	return fmt.Sprintf(`
+%s
 
 resource "azurerm_application_insights_workbook" "test" {
   name                    = "acctestappinsightsworkbook-%d"
   location                = azurerm_resource_group.test.location
   resource_group_name     = azurerm_resource_group.test.name
-  application_insights_id = azurerm_application_insights.test.id
-  kind                    = "User"
-  category                = "category%d"
-  user_id                 = # TODO: AzureAD User ID fake
+  kind                    = "shared"
+  category                = "workbook"
+  user_id                 = "%s"
   workbook_tags           = ["tag1"]
 
-  serialized_data = "{}" # TODO
+  serialized_data = <<DATA
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "test123"
+      },
+      "name": "text - 0"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    ${azurerm_resource_group.test.id}
+  ]
+}
+DATA
 
   lifecycle {
     ignore_changes = ["tags"]
   }
 }
-`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
+`, init, data.RandomInteger, data.Client().Default.ClientID)
 }
 
 func testAccAzureRMApplicationInsightsWorkbook_requiresImport(data acceptance.TestData) string {
@@ -231,7 +232,7 @@ func testAccAzureRMApplicationInsightsWorkbook_requiresImport(data acceptance.Te
 	return fmt.Sprintf(`
 %s
 
-resource "azurerm_application_insights_web_test" "import" {
+resource "azurerm_application_insights_workbook" "import" {
   name                    = azurerm_application_insights_web_test.test.name
   location                = azurerm_application_insights_web_test.test.location
   resource_group_name     = azurerm_application_insights_web_test.test.resource_group_name
@@ -246,38 +247,46 @@ resource "azurerm_application_insights_web_test" "import" {
 }
 
 func testAccAzureRMApplicationInsightsWorkbook_complete(data acceptance.TestData) string {
+	init := testAccAzureRMApplicationInsightsWorkbook_template(data)
 	return fmt.Sprintf(`
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "test" {
-  name     = "acctestRG-%d"
-  location = "%s"
-}
-
-resource "azurerm_application_insights" "test" {
-  name                = "acctestappinsights-%d"
-  location            = azurerm_resource_group.test.location
-  resource_group_name = azurerm_resource_group.test.name
-  application_type    = "web"
-}
+%s
 
 resource "azurerm_application_insights_workbook" "test" {
   name                    = "acctestappinsightsworkbook-%d"
   location                = azurerm_resource_group.test.location
   resource_group_name     = azurerm_resource_group.test.name
-  application_insights_id = azurerm_application_insights.test.id
-  kind                    = "User"
-  category                = "category%d"
-  user_id                 = # TODO: AzureAD User ID fake
+  kind                    = "user"
+  category                = "workbook"
+  user_id                 = "%s"
   workbook_tags           = ["tag1"]
+  source_resource_id      = "/path/to/resource/id"
 
-  serialized_data = "{}" # TODO
+  serialized_data = <<DATA
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "test123"
+      },
+      "name": "text - 0"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    ${azurerm_resource_group.test.id}
+  ]
+}
+DATA
+
+  tags {
+    "hello": "world",
+  }
 
   lifecycle {
     ignore_changes = ["tags"]
   }
 }
-`, data.RandomInteger, data.Locations.Primary, data.RandomInteger, data.RandomInteger, data.RandomInteger)
+`, init, data.RandomInteger, data.Client().Default.ClientID)
 }

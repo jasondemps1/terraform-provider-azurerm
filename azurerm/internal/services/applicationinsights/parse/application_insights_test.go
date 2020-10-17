@@ -137,3 +137,70 @@ func TestApplicationInsightsWebTestID(t *testing.T) {
 		}
 	}
 }
+
+func TestApplicationInsightsWorkbookID(t *testing.T) {
+	testData := []struct {
+		Name   string
+		Input  string
+		Error  bool
+		Expect *ApplicationInsightsWorkbookId
+	}{
+		{
+			Name:  "Empty",
+			Input: "",
+			Error: true,
+		},
+		{
+			Name:  "No Resource Groups Segment",
+			Input: "/subscriptions/00000000-0000-0000-0000-000000000000",
+			Error: true,
+		},
+		{
+			Name:  "No Resource Groups Value",
+			Input: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/",
+			Error: true,
+		},
+		{
+			Name:  "No Provider",
+			Input: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers",
+			Error: true,
+		},
+		{
+			Name:  "No webtest",
+			Input: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/microsoft.insights/workbooks",
+			Error: true,
+		},
+		{
+			Name:  "Correct",
+			Input: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/microsoft.insights/workbooks/uuid1",
+			Expect: &ApplicationInsightsWorkbookId{
+				ResourceGroup: "group1",
+				UUID:          "uuid1",
+			},
+		},
+	}
+
+	for _, v := range testData {
+		t.Logf("[DEBUG] Testing %q", v.Name)
+
+		actual, err := ApplicationInsightsWorkbookID(v.Input)
+		if err != nil {
+			if v.Error {
+				continue
+			}
+
+			t.Fatalf("Expect a value but got an error: %s", err)
+		}
+		if v.Error {
+			t.Fatal("Expect an error but didn't get")
+		}
+
+		if actual.ResourceGroup != v.Expect.ResourceGroup {
+			t.Fatalf("Expected %q but got %q for Resource Group", v.Expect.ResourceGroup, actual.ResourceGroup)
+		}
+
+		if actual.UUID != v.Expect.UUID {
+			t.Fatalf("Expected %q but got %q for Name", v.Expect.UUID, actual.UUID)
+		}
+	}
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/appinsights/mgmt/2015-05-01/insights"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/tf"
@@ -18,16 +19,30 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
-//func schemaWorkbookProperties() *schema.Schema {
-//return &schema.Schema{
-//Type:     schema.TypeList,
-//MaxItems: 1,
-//Optional: true,
-//Computed: true,
-//Elem: &schema.Resource{
-//}
-//}
-//}
+func stringInCategoryTypeSlice(ignoreCase bool) schema.SchemaValidateFunc {
+	categoryTypeStrings := make([]string, len(insights.PossibleCategoryTypeValues()))
+
+	for _, v := range insights.PossibleCategoryTypeValues() {
+		categoryTypeStrings = append(categoryTypeStrings, string(v))
+	}
+
+	return func(i interface{}, k string) (warnings []string, errors []error) {
+		v, ok := i.(string)
+		if !ok {
+			errors = append(errors, fmt.Errorf("expected type of %s to be string", k))
+			return warnings, errors
+		}
+
+		for _, str := range categoryTypeStrings {
+			if v == str || (ignoreCase && strings.ToLower(v) == strings.ToLower(str)) {
+				return warnings, errors
+			}
+		}
+
+		errors = append(errors, fmt.Errorf("expected %s to be one of %v, got %s", k, categoryTypeStrings, v))
+		return warnings, errors
+	}
+}
 
 func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 	return &schema.Resource{
@@ -83,9 +98,8 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 				Required: true,
 				// TODO: Do we need?
 				// ForceNew: true,
-				ValidateFunc: validation.StringIsJSON,
-				// TODO: Not sure if we need:
-				//DiffSuppressFunc: structure.SuppressJsonDiff,
+				ValidateFunc:     validation.StringIsJSON,
+				DiffSuppressFunc: structure.SuppressJsonDiff,
 			},
 
 			"version": {
@@ -94,15 +108,21 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 			},
 
 			"workbook_id": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.IsUUID,
+				Type: schema.TypeString,
+				//Required:     true,
+				Computed: true,
+				//ValidateFunc: validation.IsUUID,
 			},
 
 			"category": {
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validation.StringIsNotWhiteSpace,
+				ValidateFunc: stringInCategoryTypeSlice(false),
+				//ValidateFunc: validation.StringInSlice([]string{
+				//string(insights.CategoryTypeWorkbook),
+				//string(insights.CategoryTypeTSG),
+				//string(insights.PossibleCategoryTypeValues()),
+				//}, false),
 			},
 
 			"workbook_tags": {
@@ -125,8 +145,9 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 			},
 
 			"source_resource_id": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validation.IsUUID,
 			},
 		},
 	}
@@ -134,7 +155,6 @@ func resourceArmApplicationInsightsWorkbooks() *schema.Resource {
 
 func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*clients.Client).AppInsights.WorkbooksClient
-	//billingClient := meta.(*clients.Client).AppInsights.BillingClient
 	ctx, cancel := timeouts.ForCreateUpdate(meta.(*clients.Client).StopContext, d)
 
 	defer cancel()
@@ -143,14 +163,15 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 
 	name := d.Get("name").(string)
 	resGroup := d.Get("resource_group_name").(string)
-	appInsightsID := d.Get("application_insights_id").(string)
 
-	id, err := azure.ParseAzureResourceID(appInsightsID)
-	if err != nil {
-		return err
-	}
+	//appInsightsID := d.Get("application_insights_id").(string)
 
-	appInsightsName := id.Path["components"]
+	//id, err := azure.ParseAzureResourceID(appInsightsID)
+	//if err != nil {
+	//return err
+	//}
+
+	//appInsightsName := id.Path["components"]
 
 	if d.IsNewResource() {
 		existing, err := client.Get(ctx, resGroup, name)
@@ -165,15 +186,11 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 		}
 	}
 
-	//applicationType := d.Get("application_type").(string)
-	//samplingPercentage := utils.Float(d.Get("sampling_percentage").(float64))
-	//disableIpMasking := d.Get("disable_ip_masking").(bool)
 	location := d.Get("location").(string)
-	//tags := d.Get("tags").(map[string]*string)
 
 	t := d.Get("tags").(map[string]interface{})
-	tagKey := fmt.Sprintf("hidden-link:/subscriptions/%s/resourceGroups/%s/providers/microsoft.insights/components/%s", client.SubscriptionID, resGroup, appInsightsName)
-	t[tagKey] = "Resource"
+	//tagKey := fmt.Sprintf("hidden-link:/subscriptions/%s/resourceGroups/%s/providers/microsoft.insights/components/%s", client.SubscriptionID, resGroup, appInsightsName)
+	//t[tagKey] = "Resource"
 
 	kind := d.Get("kind").(string)
 	serializedData := d.Get("serialized_data").(string)
@@ -208,65 +225,10 @@ func resourceArmApplicationInsightsWorkbooksCreateUpdate(d *schema.ResourceData,
 		Tags: tags.Expand(t),
 	}
 
-	//category :=
-
-	//location := azure.NormalizeLocation(d.Get("location").(string))
-	//t := d.Get("tags").(map[string]interface{})
-
-	//workbookProperties := insights.WorkbookProperties{
-	//Name:           &name,
-	//SerializedData: &serializedData,
-	//Version:        &version,
-	////WorkbookID: , // TODO: How to generate a unique ID and string it?
-	//SharedTypeKind: sharedTypeKind,
-
-	//}
-
-	//applicationInsightsComponentProperties := insights.ApplicationInsightsComponentProperties{
-	//ApplicationID:      &name,
-	//ApplicationType:    insights.ApplicationType(applicationType),
-	//SamplingPercentage: samplingPercentage,
-	//DisableIPMasking:   utils.Bool(disableIpMasking),
-	//}
-
-	//if v, ok := d.GetOk("retention_in_days"); ok {
-	//applicationInsightsComponentProperties.RetentionInDays = utils.Int32(int32(v.(int)))
-	//}
-
-	//insightProperties := insights.ApplicationInsightsComponent{
-	//Name:                                   &name,
-	//Location:                               &location,
-	//Kind:                                   &applicationType,
-	//ApplicationInsightsComponentProperties: &applicationInsightsComponentProperties,
-	//Tags:                                   tags.Expand(t),
-	//}
-
 	resp, err := client.CreateOrUpdate(ctx, resGroup, name, workbook)
 	if err != nil {
 		return fmt.Errorf("Error creating Application Insights Workbook %q (Resource Group %q): %+v", name, resGroup, err)
 	}
-
-	//billingRead, err := billingClient.Get(ctx, resGroup, name)
-	//if err != nil {
-	//return fmt.Errorf("Error read Application Insights Workbooks Billing Features %q (Resource Group %q): %+v", name, resGroup, err)
-	//}
-
-	//applicationInsightsComponentBillingFeatures := insights.ApplicationInsightsComponentBillingFeatures{
-	//CurrentBillingFeatures: billingRead.CurrentBillingFeatures,
-	//DataVolumeCap:          billingRead.DataVolumeCap,
-	//}
-
-	//if v, ok := d.GetOk("daily_data_cap_in_gb"); ok {
-	//applicationInsightsComponentBillingFeatures.DataVolumeCap.Cap = utils.Float(v.(float64))
-	//}
-
-	//if v, ok := d.GetOk("daily_data_cap_notifications_disabled"); ok {
-	//applicationInsightsComponentBillingFeatures.DataVolumeCap.StopSendNotificationWhenHitCap = utils.Bool(v.(bool))
-	//}
-
-	//if _, err = billingClient.Update(ctx, resGroup, name, applicationInsightsComponentBillingFeatures); err != nil {
-	//return fmt.Errorf("Error update Application Insights Workbooks Billing Feature %q (Resource Group %q): %+v", name, resGroup, err)
-	//}
 
 	d.SetId(*resp.ID)
 
@@ -304,17 +266,17 @@ func resourceArmApplicationInsightsWorkbooksRead(d *schema.ResourceData, meta in
 		d.Set("location", azure.NormalizeLocation(*location))
 	}
 
-	appInsightsID := ""
-	for i := range resp.Tags {
-		if strings.HasPrefix(i, "hidden-link") {
-			appInsightsID = strings.Split(i, ":")[1]
-		}
-	}
+	//appInsightsID := ""
+	//for i := range resp.Tags {
+	//if strings.HasPrefix(i, "hidden-link") {
+	//appInsightsID = strings.Split(i, ":")[1]
+	//}
+	//}
 
 	d.Set("name", resp.Name)
 	d.Set("resource_group_name", resGroup)
 	d.Set("kind", resp.Kind)
-	d.Set("application_insights_id", appInsightsID)
+	//d.Set("application_insights_id", appInsightsID)
 
 	if location := resp.Location; location != nil {
 		d.Set("location", azure.NormalizeLocation(*location))
