@@ -7,6 +7,7 @@ Application Insights
 Attestation
 Authorization
 Automation
+Azure Stack HCI
 Base
 Batch
 Blueprints
@@ -25,10 +26,12 @@ Data Lake
 Data Share
 Database
 Database Migration
+Databox Edge
 Databricks
 Desktop Virtualization
 Dev Test
 DevSpace
+Digital Twins
 HDInsight
 Hardware Security Module
 Healthcare
@@ -56,6 +59,7 @@ PowerBI
 Private DNS
 Recovery Services
 Redis
+Redis Enterprise
 Search
 Security Center
 Sentinel
@@ -67,3 +71,4 @@ Stream Analytics
 Synapse
 Template
 Time Series Insights
+VMware (AVS)

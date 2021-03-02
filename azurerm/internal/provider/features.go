@@ -19,7 +19,6 @@ func schemaFeatures(supportLegacyTestSuite bool) *schema.Schema {
 						Type:     schema.TypeBool,
 						Optional: true,
 					},
-
 					"purge_soft_delete_on_destroy": {
 						Type:     schema.TypeBool,
 						Optional: true,
@@ -64,7 +63,11 @@ func schemaFeatures(supportLegacyTestSuite bool) *schema.Schema {
 				Schema: map[string]*schema.Schema{
 					"delete_os_disk_on_deletion": {
 						Type:     schema.TypeBool,
-						Required: true,
+						Optional: true,
+					},
+					"graceful_shutdown": {
+						Type:     schema.TypeBool,
+						Optional: true,
 					},
 				},
 			},
@@ -110,25 +113,7 @@ func schemaFeatures(supportLegacyTestSuite bool) *schema.Schema {
 
 func expandFeatures(input []interface{}) features.UserFeatures {
 	// these are the defaults if omitted from the config
-	features := features.UserFeatures{
-		// NOTE: ensure all nested objects are fully populated
-		KeyVault: features.KeyVaultFeatures{
-			PurgeSoftDeleteOnDestroy:    true,
-			RecoverSoftDeletedKeyVaults: true,
-		},
-		Network: features.NetworkFeatures{
-			RelaxedLocking: false,
-		},
-		TemplateDeployment: features.TemplateDeploymentFeatures{
-			DeleteNestedItemsDuringDeletion: true,
-		},
-		VirtualMachine: features.VirtualMachineFeatures{
-			DeleteOSDiskOnDeletion: true,
-		},
-		VirtualMachineScaleSet: features.VirtualMachineScaleSetFeatures{
-			RollInstancesWhenRequired: true,
-		},
-	}
+	features := features.Default()
 
 	if len(input) == 0 || input[0] == nil {
 		return features
@@ -175,6 +160,9 @@ func expandFeatures(input []interface{}) features.UserFeatures {
 			virtualMachinesRaw := items[0].(map[string]interface{})
 			if v, ok := virtualMachinesRaw["delete_os_disk_on_deletion"]; ok {
 				features.VirtualMachine.DeleteOSDiskOnDeletion = v.(bool)
+			}
+			if v, ok := virtualMachinesRaw["graceful_shutdown"]; ok {
+				features.VirtualMachine.GracefulShutdown = v.(bool)
 			}
 		}
 	}
