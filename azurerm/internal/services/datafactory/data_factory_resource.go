@@ -12,6 +12,9 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/clients"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/datafactory/migration"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/datafactory/validate"
+	keyVaultParse "github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/keyvault/parse"
+	keyVaultValidate "github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/keyvault/validate"
+	msivalidate "github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/services/msi/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/tags"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/internal/timeouts"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
@@ -161,6 +164,47 @@ func resourceDataFactory() *schema.Resource {
 				},
 			},
 
+			"encryption": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Computed: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						//"key_name": {
+						//Type:         schema.TypeString,
+						//ForceNew:     true,
+						//Required:     true,
+						//ValidateFunc: validation.StringIsNotEmpty,
+						//},
+						//"vault_base_url": {
+						//Type:         schema.TypeString,
+						//ForceNew:     true,
+						//Required:     true,
+						//ValidateFunc: validation.StringIsNotEmpty,
+						//},
+						//"key_version": {
+						//Type:     schema.TypeString,
+						//ForceNew: true,
+						//Optional: true,
+						//},
+						"key_vault_key_id": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: keyVaultValidate.NestedItemId,
+							//RequiredWith: []string{"identity.0.user_identity_ids"},
+						},
+						"identity": {
+							Type: schema.TypeString,
+							//Optional:     true,
+							Required:     true, // for now
+							ValidateFunc: msivalidate.UserAssignedIdentityID,
+							//ValidateFunc: azure.ValidateResourceIDOrEmpty,
+						},
+					},
+				},
+			},
+
 			"public_network_enabled": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -211,6 +255,28 @@ func resourceDataFactoryCreateUpdate(d *schema.ResourceData, meta interface{}) e
 		identityType := v.(string)
 		dataFactory.Identity = &datafactory.FactoryIdentity{
 			Type: &identityType,
+		}
+	}
+
+	if keyVaultKeyID, ok := d.GetOk("encryption.0.key_vault_key_id"); ok {
+		keyVaultKey, err := keyVaultParse.ParseOptionallyVersionedNestedItemID(keyVaultKeyID.(string))
+		if err != nil {
+			return fmt.Errorf("could not parse Key Vault Key ID: %+v", err)
+		}
+
+		//encryptionRaw := d.Get("encryption").([]interface{})
+		//encryption := expandDataFactoryEncryptionConfiguration(encryptionRaw)
+		//dataFactory.Encryption = encryption
+
+		encIdentity := d.Get("encryption.0.identity").(string)
+
+		dataFactory.FactoryProperties.Encryption = &datafactory.EncryptionConfiguration{
+			VaultBaseURL: &keyVaultKey.KeyVaultBaseUrl,
+			KeyName:      &keyVaultKey.Name,
+			KeyVersion:   &keyVaultKey.Version,
+			Identity: &datafactory.CMKIdentityDefinition{
+				UserAssignedIdentity: utils.String(encIdentity),
+			},
 		}
 	}
 
@@ -268,6 +334,17 @@ func resourceDataFactoryRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("resource_group_name", resourceGroup)
 	if location := resp.Location; location != nil {
 		d.Set("location", azure.NormalizeLocation(*location))
+	}
+
+	if factoryProps := resp.FactoryProperties; factoryProps != nil {
+		if enc := factoryProps.Encryption; enc != nil {
+			if enc.VaultBaseURL != nil && enc.KeyName != nil && enc.KeyVersion != nil {
+				versionedKey := fmt.Sprintf("%skeys/%s/%s", *enc.VaultBaseURL, *enc.KeyName, *enc.KeyVersion)
+				if err := d.Set("key_vault_key_id", versionedKey); err != nil {
+					return fmt.Errorf("Error setting `key_vault_key_id`: %+v", err)
+				}
+			}
+		}
 	}
 
 	d.Set("vsts_configuration", []interface{}{})
@@ -429,3 +506,22 @@ func flattenDataFactoryIdentity(identity *datafactory.FactoryIdentity) interface
 
 	return []interface{}{result}
 }
+
+//func flattenDataFactoryEncryption(enc *datafactory.EncryptionConfiguration) interface{} {
+//if enc == nil {
+//return make([]interface{}, 0)
+//}
+
+//result := make(map[string]interface{})
+//if enc.KeyName != nil {
+//result["KeyName"] = *enc.KeyName
+//}
+//if enc.PrincipalID != nil {
+//result["principal_id"] = identity.PrincipalID.String()
+//}
+//if identity.TenantID != nil {
+//result["tenant_id"] = identity.TenantID.String()
+//}
+
+//return []interface{}{result}
+//}
