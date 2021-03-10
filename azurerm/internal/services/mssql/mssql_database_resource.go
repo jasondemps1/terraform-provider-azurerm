@@ -206,6 +206,12 @@ func resourceMsSqlDatabase() *schema.Resource {
 				Computed: true,
 			},
 
+			"geo_backup_policy_enabled": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
+			},
+
 			"threat_detection_policy": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -311,6 +317,7 @@ func resourceMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface{})
 	threatClient := meta.(*clients.Client).MSSQL.DatabaseThreatDetectionPoliciesClient
 	longTermRetentionClient := meta.(*clients.Client).MSSQL.BackupLongTermRetentionPoliciesClient
 	shortTermRetentionClient := meta.(*clients.Client).MSSQL.BackupShortTermRetentionPoliciesClient
+	geoBackupPoliciesClient := meta.(*clients.Client).MSSQL.GeoBackupPoliciesClient
 	ctx, cancel := timeouts.ForCreateUpdate(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -500,6 +507,10 @@ func resourceMsSqlDatabaseCreateUpdate(d *schema.ResourceData, meta interface{})
 		}
 	}
 
+	if _, err = geoBackupPoliciesClient.CreateOrUpdate(ctx, serverId.ResourceGroup, serverId.Name, name, *expandMsSqlServerGeoBackupPolicy(d)); err != nil {
+		return fmt.Errorf("setting geo backup policy: %+v", err)
+	}
+
 	return resourceMsSqlDatabaseRead(d, meta)
 }
 
@@ -509,6 +520,7 @@ func resourceMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) error {
 	auditingClient := meta.(*clients.Client).MSSQL.DatabaseExtendedBlobAuditingPoliciesClient
 	longTermRetentionClient := meta.(*clients.Client).MSSQL.BackupLongTermRetentionPoliciesClient
 	shortTermRetentionClient := meta.(*clients.Client).MSSQL.BackupShortTermRetentionPoliciesClient
+	geoBackupPoliciesClient := meta.(*clients.Client).MSSQL.GeoBackupPoliciesClient
 	ctx, cancel := timeouts.ForRead(meta.(*clients.Client).StopContext, d)
 	defer cancel()
 
@@ -564,6 +576,13 @@ func resourceMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) error {
 	if err == nil {
 		if err := d.Set("threat_detection_policy", flattenMsSqlServerThreatDetectionPolicy(d, threat)); err != nil {
 			return fmt.Errorf("setting `threat_detection_policy`: %+v", err)
+		}
+	}
+
+	geoBackupPolicy, err := geoBackupPoliciesClient.Get(ctx, id.ResourceGroup, id.ServerName, id.Name)
+	if err == nil {
+		if err := d.Set("geo_backup_policy_enabled", flattenMsSqlServerGeoBackupPolicy(d, geoBackupPolicy)); err != nil {
+			return fmt.Errorf("failure in setting SQL Database %q: %v Geo Backup Policies", id.Name, err)
 		}
 	}
 
@@ -727,6 +746,46 @@ func expandMsSqlServerThreatDetectionPolicy(d *schema.ResourceData, location str
 		if v, ok := threatDetection["storage_endpoint"]; ok {
 			properties.StorageEndpoint = utils.String(v.(string))
 		}
+
+		return &policy
+	}
+
+	return &policy
+}
+
+func flattenMsSqlServerGeoBackupPolicy(d *schema.ResourceData, policy sql.GeoBackupPolicy) []interface{} {
+	// The SQL database threat detection API always returns the default value even if never set.
+	// If the values are on their default one, threat it as not set.
+	properties := policy.GeoBackupPolicyProperties
+	if properties == nil {
+		return []interface{}{}
+	}
+
+	geoBackupPolicy := make(map[string]interface{})
+
+	geoBackupPolicy["state"] = string(properties.State)
+
+	return []interface{}{geoBackupPolicy}
+}
+
+func expandMsSqlServerGeoBackupPolicy(d *schema.ResourceData) *sql.GeoBackupPolicy {
+	policy := sql.GeoBackupPolicy{
+		GeoBackupPolicyProperties: &sql.GeoBackupPolicyProperties{
+			State: sql.GeoBackupPolicyStateEnabled,
+		},
+	}
+
+	properties := policy.GeoBackupPolicyProperties
+
+	gbp, ok := d.GetOk("geo_backup_policy_enabled")
+	if !ok {
+		return &policy
+	}
+
+	if gbpl := gbp.([]interface{}); len(gbpl) > 0 {
+		geoBackupPolicy := gbpl[0].(map[string]interface{})
+
+		properties.State = sql.GeoBackupPolicyState(geoBackupPolicy["state"].(string))
 
 		return &policy
 	}
