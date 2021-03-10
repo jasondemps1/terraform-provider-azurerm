@@ -581,8 +581,8 @@ func resourceMsSqlDatabaseRead(d *schema.ResourceData, meta interface{}) error {
 
 	geoBackupPolicy, err := geoBackupPoliciesClient.Get(ctx, id.ResourceGroup, id.ServerName, id.Name)
 	if err == nil {
-		if err := d.Set("geo_backup_policy_enabled", flattenMsSqlServerGeoBackupPolicy(d, geoBackupPolicy)); err != nil {
-			return fmt.Errorf("failure in setting SQL Database %q: %v Geo Backup Policies", id.Name, err)
+		if err := d.Set("geo_backup_policy_enabled", flattenMsSqlServerGeoBackupPolicy(geoBackupPolicy, d)); err != nil {
+			return fmt.Errorf("failure in setting SQL Database %q: %v Geo Backup Policy", id.Name, err)
 		}
 	}
 
@@ -753,19 +753,26 @@ func expandMsSqlServerThreatDetectionPolicy(d *schema.ResourceData, location str
 	return &policy
 }
 
-func flattenMsSqlServerGeoBackupPolicy(d *schema.ResourceData, policy sql.GeoBackupPolicy) []interface{} {
-	// The SQL database threat detection API always returns the default value even if never set.
-	// If the values are on their default one, threat it as not set.
+func flattenMsSqlServerGeoBackupPolicy(policy sql.GeoBackupPolicy, d *schema.ResourceData) bool {
 	properties := policy.GeoBackupPolicyProperties
-	if properties == nil {
-		return []interface{}{}
+
+	fmt.Printf("flattenGeoBackup current state: %q\n", properties.State)
+
+	if properties.State == sql.GeoBackupPolicyStateDisabled {
+		return false
 	}
 
-	geoBackupPolicy := make(map[string]interface{})
+	return true
 
-	geoBackupPolicy["state"] = string(properties.State)
+	//if properties == nil {
+	//return interface{}{}
+	//}
 
-	return []interface{}{geoBackupPolicy}
+	//geoBackupPolicy := make(map[string]interface{})
+
+	//geoBackupPolicy["state"] = string(properties.State)
+
+	//return geoBackupPolicy
 }
 
 func expandMsSqlServerGeoBackupPolicy(d *schema.ResourceData) *sql.GeoBackupPolicy {
@@ -777,18 +784,37 @@ func expandMsSqlServerGeoBackupPolicy(d *schema.ResourceData) *sql.GeoBackupPoli
 
 	properties := policy.GeoBackupPolicyProperties
 
-	gbp, ok := d.GetOk("geo_backup_policy_enabled")
-	if !ok {
-		return &policy
+	state := d.Get("geo_backup_policy_enabled")
+	fmt.Printf("expandGeoBackup current state: %q\n", state)
+	//if !ok {
+	//return &policy
+	//}
+
+	//state, _ := strconv.ParseBool(gbp.(string))
+
+	//policyState := nil //sql.GeoBackupPolicyStateDisabled
+
+	if state.(bool) {
+		properties.State = sql.GeoBackupPolicyStateEnabled
+	} else {
+		properties.State = sql.GeoBackupPolicyStateDisabled
 	}
 
-	if gbpl := gbp.([]interface{}); len(gbpl) > 0 {
-		geoBackupPolicy := gbpl[0].(map[string]interface{})
+	fmt.Printf("expandGeoBackup state is now: %q\n", properties.State)
 
-		properties.State = sql.GeoBackupPolicyState(geoBackupPolicy["state"].(string))
+	//if err != nil {
 
-		return &policy
-	}
+	//}
+
+	//properties.State = policyState //sql.GeoBackupPolicyState(policyState)
+
+	//if gbpl := gbp.(interface{}) {
+	//geoBackupPolicy := gbpl[0].(map[string]interface{})
+
+	//properties.State = sql.GeoBackupPolicyState(geoBackupPolicy.(string))
+
+	//return &policy
+	//}
 
 	return &policy
 }

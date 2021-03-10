@@ -550,7 +550,7 @@ func TestAccMsSqlDatabase_geoBackupPolicy(t *testing.T) {
 			Config: r.withGeoBackupPolicy(data),
 			Check: resource.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("geo_backup_policy.state").HasValue("Enabled"),
+				check.That(data.ResourceName).Key("geo_backup_policy_enabled").HasValue("true"),
 			),
 		},
 		data.ImportStep(),
@@ -558,7 +558,7 @@ func TestAccMsSqlDatabase_geoBackupPolicy(t *testing.T) {
 			Config: r.withGeoBackupPolicyUpdated(data),
 			Check: resource.ComposeTestCheckFunc(
 				check.That(data.ResourceName).ExistsInAzure(r),
-				check.That(data.ResourceName).Key("geo_backup_policy.state").HasValue("Disabled"),
+				check.That(data.ResourceName).Key("geo_backup_policy_enabled").HasValue("false"),
 			),
 		},
 		data.ImportStep(),
@@ -1384,6 +1384,7 @@ func (r MsSqlDatabaseResource) withGeoBackupPolicy(data acceptance.TestData) str
 resource "azurerm_mssql_database" "test" {
   name                      = "acctest-db-%[3]d"
   server_id                 = azurerm_sql_server.test.id
+  sku_name = "DW100c"
   geo_backup_policy_enabled = true
 }
 `, r.template(data), data.RandomIntOfLength(15), data.RandomInteger)
@@ -1396,6 +1397,7 @@ func (r MsSqlDatabaseResource) withGeoBackupPolicyUpdated(data acceptance.TestDa
 resource "azurerm_mssql_database" "test" {
   name                      = "acctest-db-%[3]d"
   server_id                 = azurerm_sql_server.test.id
+  sku_name = "DW100c"
   geo_backup_policy_enabled = false
 }
 `, r.template(data), data.RandomIntOfLength(15), data.RandomInteger)
